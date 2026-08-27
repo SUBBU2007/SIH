@@ -1,16 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0d1117;
-  --bg-elevated: #161b22;
-  --border: #30363d;
-  --text: #e6edf3;
-  --text-dim: #8b949e;
-  --accent: #58a6ff;
+  --bg: #FAFAF7;
+  --bg-elevated: #FFFFFF;
+  --ink: #14231C;
+  --ink-dim: #5B665F;
+  --line: #DDD9CC;
+  --accent: #C1440E;
+  --good: #3D6B4F;
+  --warn: #C98A1B;
+  --alert: #B23B3B;
 }
 
 body {
   background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
 }
+
+.font-display { font-family: var(--font-display), sans-serif; }
+.font-mono { font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums; }

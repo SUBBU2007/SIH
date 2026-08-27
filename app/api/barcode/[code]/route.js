@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 // Wraps Open Food Facts. No API key needed; send a descriptive User-Agent.
 export async function GET(req, { params }) {
+  const { code } = await params;
   const res = await fetch(
-    `https://world.openfoodfacts.org/api/v2/product/${params.code}.json`,
+    `https://world.openfoodfacts.org/api/v2/product/${code}.json`,
     { headers: { "User-Agent": "LabelSense - SIH2026 - contact@example.com" } }
   );
   const data = await res.json();
