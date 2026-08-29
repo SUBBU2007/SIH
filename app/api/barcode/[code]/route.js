@@ -19,10 +19,17 @@ export async function GET(req, { params }) {
     productName: data.product.product_name,
     nutritionPer100: {
       sugar_g: n["sugars_100g"] ?? null,
-      sodium_mg: n["sodium_100g"] ? n["sodium_100g"] * 1000 : null,
+      // sodium_mg: n["sodium_100g"] ? n["sodium_100g"] * 1000 : null,
+      sodium_mg:
+        n["sodium_100g"] != null
+          ? n["sodium_100g"] * 1000
+          : n["salt_100g"] != null
+            ? (n["salt_100g"] * 1000) / 2.5
+            : null,
       protein_g: n["proteins_100g"] ?? null,
       sat_fat_g: n["saturated-fat_100g"] ?? null,
       energy_kcal: n["energy-kcal_100g"] ?? null,
+      fiber_g: n["fiber_100g"] ?? n["fibers_100g"] ?? null,
     },
   });
 }

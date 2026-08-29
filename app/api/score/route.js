@@ -1,73 +1,71 @@
 import { NextResponse } from "next/server";
-import {
-  computeScore,
-  checkMismatch,
-  generateExplanation,
-  buildSummary,
-} from "@/lib/ruleEngine";
+import { computeScore, checkMismatch } from "@/lib/ruleEngine";
 import { connectDB } from "@/lib/mongodb";
 import Product from "@/lib/models/Product";
 
 export async function POST(req) {
-  const body = await req.json();
-  const { barcode, productName, category, nutritionPer100, reconciliation, source } = body;
-
-  const scored = computeScore(nutritionPer100);
-
-  const mismatch = reconciliation?.hasBothSources
-    ? checkMismatch(reconciliation.barcodeValues, reconciliation.ocrValues)
-    : { hasMismatch: false, severity: "none", fields: [] };
-
-  const whyThisResult = generateExplanation(scored.metricScores);
-  const defaultSummary = buildSummary(scored.grade, scored.metricScores);
-
-  const output = {
-    status: "computed",
-    ...scored,
-    nutritionPer100,
-    recommendations: { defaultSummary, goalMode: "overall", rank: null },
-    explainability: {
-      rulesApplied: ["overall_weighted_score_v1", "mismatch_threshold_v1"],
-      whyThisResult,
-    },
-    mismatchCheck: mismatch,
-    warnings: mismatch.hasMismatch
-      ? [`Data mismatch detected: ${mismatch.fields.map((f) => f.field).join(", ")}`]
-      : [],
-  };
-
   try {
-    await connectDB();
-    if (barcode) {
-      await Product.findOneAndUpdate(
-        { barcode },
-        {
-          barcode,
-          productName,
-          category: category || "unknown",
-          source,
-          nutritionPer100,
-          reconciliation,
-          scoreOutput: output,
-        },
-        { upsert: true, new: true },
-      );
-    } else {
-      // OCR-only scans have no stable identifier yet — still created fresh.
-      // Revisit once products have a persistent ID beyond barcode.
-      await Product.create({
-        productName,
-        category: category || "unknown",
-        source,
-        nutritionPer100,
-        reconciliation,
-        scoreOutput: output,
+    const body = await req.json();
+    const { barcode, productName, nutritionPer100, category = "solid", reconciliation, source } = body;
+
+    if (category !== "solid" && category !== "snacks") {
+      return NextResponse.json({
+        status: "not_available",
+        scoreStatus: "NOT_AVAILABLE",
+        reason: "UNKNOWN_OR_UNSUPPORTED_CATEGORY",
+        foodScore: null, starRating: null, starDisplay: null,
       });
     }
-    console.log("Saved to DB:", productName);
-  } catch (err) {
-    console.error("DB save failed:", err.message);
-  }
 
-  return NextResponse.json(output);
+    const round1 = (v) => (typeof v === "number" ? Math.round(v * 10) / 10 : v);
+    const cleanNutrition = Object.fromEntries(
+      Object.entries(nutritionPer100 || {}).map(([k, v]) => [k, round1(v)])
+    );
+
+    const scored = computeScore(cleanNutrition);
+
+    const mismatch = reconciliation?.hasBothSources
+      ? checkMismatch(reconciliation.barcodeValues, reconciliation.ocrValues)
+      : { hasMismatch: false, severity: "none", fields: [] };
+
+    const warnings = [];
+    if (mismatch.hasMismatch) {
+      warnings.push(`Data mismatch detected: ${mismatch.fields.map((f) => f.field).join(", ")}`);
+    }
+    if (scored.scoreStatus === "NOT_AVAILABLE") {
+      warnings.push("A definitive FoodScore could not be calculated from the available nutrition data.");
+    }
+
+    const output = {
+      status: scored.scoreStatus === "CALCULATED" ? "computed" : "not_available",
+      category,
+      ...scored,
+      mismatchCheck: mismatch,
+      warnings,
+    };
+
+    try {
+      await connectDB();
+      if (barcode) {
+        await Product.findOneAndUpdate(
+          { barcode },
+          { barcode, productName, category, source, nutritionPer100: cleanNutrition, reconciliation, scoreOutput: output },
+          { upsert: true, new: true }
+        );
+      } else {
+        await Product.create({ productName, category, source, nutritionPer100: cleanNutrition, reconciliation, scoreOutput: output });
+      }
+      console.log("Saved to DB:", productName);
+    } catch (err) {
+      console.error("DB save failed:", err.message);
+    }
+
+    return NextResponse.json(output);
+  } catch (error) {
+    console.error("Score API error:", error);
+    return NextResponse.json(
+      { status: "error", scoreStatus: "INVALID_INPUT", reason: "INVALID_REQUEST", error: "Unable to calculate FoodScore." },
+      { status: 400 }
+    );
+  }
 }

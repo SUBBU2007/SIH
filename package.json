@@ -15,7 +15,7 @@
     "mongoose": "^8.5.0",
     "framer-motion": "^11.3.0",
     "lucide-react": "^0.400.0",
-    "tesseract.js": "^5.1.0"
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "tailwindcss": "^4.0.0",
