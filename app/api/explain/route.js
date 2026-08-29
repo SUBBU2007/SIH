@@ -24,7 +24,7 @@ export async function POST(req) {
   );
 
   const data = await res.json();
-  console.log("Gemini raw response:", JSON.stringify(data, null, 2));
+  //console.log("Gemini raw response:", JSON.stringify(data, null, 2));
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
 
   return NextResponse.json({ aiSummary: text });

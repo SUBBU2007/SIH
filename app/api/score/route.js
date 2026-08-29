@@ -6,7 +6,7 @@ import Product from "@/lib/models/Product";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { barcode, productName, nutritionPer100, category = "solid", reconciliation, source } = body;
+    const { barcode, productName, nutritionPer100, category = "solid", reconciliation, source, quality } = body;
 
     if (category !== "solid" && category !== "snacks") {
       return NextResponse.json({
@@ -39,21 +39,71 @@ export async function POST(req) {
     const output = {
       status: scored.scoreStatus === "CALCULATED" ? "computed" : "not_available",
       category,
+      source,
+      quality,
       ...scored,
       mismatchCheck: mismatch,
       warnings,
     };
+
+    // try {
+    //   await connectDB();
+    //   if (barcode) {
+    //     await Product.findOneAndUpdate(
+    //       { barcode },
+    //       { barcode, productName, category, source, nutritionPer100: cleanNutrition, reconciliation, scoreOutput: output },
+    //       { upsert: true, new: true }
+    //     );
+    //   } else {
+    //     await Product.create({ productName, category, source, nutritionPer100: cleanNutrition, reconciliation, scoreOutput: output });
+    //   }
+    //   console.log("Saved to DB:", productName);
+    // } catch (err) {
+    //   console.error("DB save failed:", err.message);
+    // }
 
     try {
       await connectDB();
       if (barcode) {
         await Product.findOneAndUpdate(
           { barcode },
-          { barcode, productName, category, source, nutritionPer100: cleanNutrition, reconciliation, scoreOutput: output },
-          { upsert: true, new: true }
+          {
+            barcode,
+            productName,
+            category,
+            source,
+            quality,
+            nutritionPer100: cleanNutrition,
+            reconciliation,
+            scoreOutput: output,
+          },
+          { upsert: true, new: true },
+        );
+      } else if (productName && productName.trim()) {
+        const nameKey = productName.trim().toLowerCase();
+        await Product.findOneAndUpdate(
+          { nameKey },
+          {
+            nameKey,
+            productName: productName.trim(),
+            category,
+            source,
+            quality,
+            nutritionPer100: cleanNutrition,
+            reconciliation,
+            scoreOutput: output,
+          },
+          { upsert: true, new: true },
         );
       } else {
-        await Product.create({ productName, category, source, nutritionPer100: cleanNutrition, reconciliation, scoreOutput: output });
+        await Product.create({
+          productName,
+          category,
+          source,
+          nutritionPer100: cleanNutrition,
+          reconciliation,
+          scoreOutput: output,
+        });
       }
       console.log("Saved to DB:", productName);
     } catch (err) {

@@ -17,6 +17,7 @@ export default function ScanInput() {
   const [product, setProduct] = useState(null);
   const [score, setScore] = useState(null);
   const [aiSummary, setAiSummary] = useState(null);
+  const [manualName, setManualName] = useState("");
 
   const NUTRIENT_INFO = {
     Energy:
@@ -32,10 +33,55 @@ export default function ScanInput() {
     Fibre:
       "Supports digestion; generally under-consumed in typical diets. Higher is favorable.",
   };
+  
+  //plain OCR - tesseract
+  // async function runOcr(file) {
+  //   const data = await recognizeLabel(file);
+  //   return parseNutrition(data);
+  // }
 
+  //Gemini - vision
+  // async function runOcr(file) {
+  //   const formData = new FormData();
+  //   formData.append("image", file);
+  //   const res = await fetch("/api/ocr-vision", {
+  //     method: "POST",
+  //     body: formData,
+  //   });
+  //   return await res.json();
+  // }
+
+  //both combined
   async function runOcr(file) {
-    const data = await recognizeLabel(file);
-    return parseNutrition(data);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/ocr-vision", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Vision OCR failed");
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+      return {
+        nutrition: result,
+        meta: { ocrEngine: "gemini-vision", ocrConfidence: null },
+      };
+    } catch (err) {
+      console.warn(
+        "Vision OCR unavailable, falling back to Tesseract:",
+        err.message,
+      );
+      const data = await recognizeLabel(file);
+      const nutrition = parseNutrition(data);
+      return {
+        nutrition,
+        meta: {
+          ocrEngine: "tesseract",
+          ocrConfidence: data.confidence ?? null,
+        },
+      };
+    }
   }
 
   async function handleSubmit() {
@@ -55,18 +101,31 @@ export default function ScanInput() {
         }
       }
 
+      // let ocr = null;
+      // if (imageFile) {
+      //   ocr = await runOcr(imageFile);
+      // }
       let ocr = null;
+      let ocrMeta = null;
       if (imageFile) {
-        ocr = await runOcr(imageFile);
+        const ocrResult = await runOcr(imageFile);
+        ocr = ocrResult.nutrition;
+        ocrMeta = ocrResult.meta;
       }
 
       if (!lookup && !ocr) {
         setStatus("error");
-        setErrorMessage("Nothing found — check the barcode or photo.");
+        setErrorMessage("Nothing found, check the barcode or photo.");
         return;
       }
 
-      const productName = lookup ? lookup.productName : "Scanned label (no barcode)";
+      if (!lookup && ocr && !manualName.trim()) {
+        setStatus("error");
+        setErrorMessage("Please enter a product name for label only scans.");
+        return;
+      }
+
+      const productName = lookup ? lookup.productName : (manualName.trim() || "Scanned label (no barcode)");
       setProduct({ productName });
 
       const hasBothSources = Boolean(lookup && ocr);
@@ -80,6 +139,7 @@ export default function ScanInput() {
           productName,
           category,
           source: { barcodeUsed: Boolean(lookup), ocrUsed: Boolean(ocr) },
+          quality: ocrMeta,
           nutritionPer100,
           reconciliation: hasBothSources
             ? { hasBothSources: true, barcodeValues: lookup.nutritionPer100, ocrValues: ocr }
@@ -124,6 +184,16 @@ export default function ScanInput() {
         onChange={(e) => setBarcode(e.target.value)}
         placeholder="8901234567890"
         className="font-mono mt-2 w-full rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+      />
+
+      <label className="mt-4 block text-sm text-[var(--ink-dim)]">
+        Product name (required if no barcode)
+      </label>
+      <input
+        value={manualName}
+        onChange={(e) => setManualName(e.target.value)}
+        placeholder="e.g. GoodDay Choco Chip"
+        className="mt-2 w-full rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
       />
 
       <label className="mt-4 block text-sm text-[var(--ink-dim)]">
@@ -196,6 +266,28 @@ export default function ScanInput() {
                 {aiSummary}
               </p>
             )}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-dim)]">
+              <span className="rounded-full border border-[var(--line)] px-2 py-0.5">
+                {score.source?.barcodeUsed && score.source?.ocrUsed
+                  ? score.mismatchCheck?.hasMismatch
+                    ? "Barcode + Label (mismatch flagged)"
+                    : "Barcode + Label (verified match)"
+                  : score.source?.barcodeUsed
+                    ? "Source: Open Food Facts"
+                    : score.source?.ocrUsed
+                      ? "Source: Label scan"
+                      : "Source: unknown"}
+              </span>
+              {score.quality?.ocrEngine === "tesseract" &&
+                score.quality?.ocrConfidence != null && (
+                  <span>
+                    OCR confidence: {Math.round(score.quality.ocrConfidence)}%
+                  </span>
+                )}
+              {score.quality?.ocrEngine === "gemini-vision" && (
+                <span>Label read via AI vision</span>
+              )}
+            </div>
           </div>
 
           <div className="divide-y divide-[var(--line)]">
