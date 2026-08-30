@@ -35,7 +35,7 @@ export default function Home() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="mt-4 text-lg text-[var(--ink-dim)]"
         >
-          Scan a barcode or a label photo. Get a transparent, explainable nutrition score — not a mystery grade.
+          Scan a barcode or a label photo. Get a transparent, explainable nutrition score, not a mystery grade.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 8 }}

@@ -17,6 +17,7 @@ export async function GET(req, { params }) {
   return NextResponse.json({
     found: true,
     productName: data.product.product_name,
+    imageUrl: data.product.image_front_url || data.product.image_url || null,
     nutritionPer100: {
       sugar_g: n["sugars_100g"] ?? null,
       // sodium_mg: n["sodium_100g"] ? n["sodium_100g"] * 1000 : null,
