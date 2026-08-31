@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import StarRating from "@/components/StarRating";
 
-const CATEGORIES = ["snacks", "solid"];
+const CATEGORIES = ["snacks"];
 const PRIORITIES = {
   overall: { label: "Overall score", key: "foodScore", better: "low" },
   sugar: { label: "Lowest sugar", key: "sugar_g", better: "low" },
@@ -31,29 +31,57 @@ export default function ComparePage() {
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickError, setQuickError] = useState("");
 
+  const [aiComparisonSummary, setAiComparisonSummary] = useState(null);
+
   useEffect(() => {
-    fetch("/api/products").then((r) => r.json()).then(setProducts);
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then(setProducts);
   }, []);
+
+  useEffect(() => {
+    if (chosen.length < 2) {
+      setAiComparisonSummary(null);
+      return;
+    }
+    fetch("/api/compare-explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        products: chosen,
+        priority: PRIORITIES[priority].label,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => setAiComparisonSummary(d.aiComparisonSummary))
+      .catch(() => setAiComparisonSummary(null));
+  }, [selected, priority]);
 
   const inCategory = products.filter((p) => p.category === category);
   const filteredList = inCategory.filter((p) =>
-    p.productName.toLowerCase().includes(search.toLowerCase())
+    p.productName.toLowerCase().includes(search.toLowerCase()),
   );
   const chosen = inCategory.filter((p) => selected.includes(p._id));
 
   const ranked = [...chosen].sort((a, b) => {
     const { key, better } = PRIORITIES[priority];
-    const va = key === "foodScore" ? a.scoreOutput.foodScore : a.nutritionPer100[key];
-    const vb = key === "foodScore" ? b.scoreOutput.foodScore : b.nutritionPer100[key];
+    const va =
+      key === "foodScore" ? a.scoreOutput.foodScore : a.nutritionPer100[key];
+    const vb =
+      key === "foodScore" ? b.scoreOutput.foodScore : b.nutritionPer100[key];
     return better === "low" ? va - vb : vb - va;
   });
 
   function toggle(id) {
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    setSelected((s) =>
+      s.includes(id) ? s.filter((x) => x !== id) : [...s, id],
+    );
   }
 
   function bestValueFor(metric) {
-    const values = chosen.map((p) => p.nutritionPer100[metric.key]).filter((v) => v != null);
+    const values = chosen
+      .map((p) => p.nutritionPer100[metric.key])
+      .filter((v) => v != null);
     if (values.length === 0 || !metric.better) return null;
     return metric.better === "low" ? Math.min(...values) : Math.max(...values);
   }
@@ -63,7 +91,9 @@ export default function ComparePage() {
     setQuickLoading(true);
     setQuickError("");
     try {
-      const lookupRes = await fetch(`/api/barcode/${encodeURIComponent(quickBarcode.trim())}`);
+      const lookupRes = await fetch(
+        `/api/barcode/${encodeURIComponent(quickBarcode.trim())}`,
+      );
       const lookup = await lookupRes.json();
       if (!lookup.found) {
         setQuickError("Barcode not found in Open Food Facts.");
@@ -88,7 +118,9 @@ export default function ComparePage() {
       }
       const refreshed = await fetch("/api/products").then((r) => r.json());
       setProducts(refreshed);
-      const newProduct = refreshed.find((p) => p.barcode === quickBarcode.trim());
+      const newProduct = refreshed.find(
+        (p) => p.barcode === quickBarcode.trim(),
+      );
       if (newProduct) setSelected((s) => [...s, newProduct._id]);
       setQuickBarcode("");
     } catch {
@@ -100,17 +132,27 @@ export default function ComparePage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="font-display text-2xl font-medium tracking-tight">Compare products</h1>
+      <h1 className="font-display text-2xl font-medium tracking-tight">
+        Compare products
+      </h1>
       <p className="mt-2 text-[var(--ink-dim)]">
         Pick the products you want to compare, or add one by barcode right here.
       </p>
 
       <select
         value={category}
-        onChange={(e) => { setCategory(e.target.value); setSelected([]); setSearch(""); }}
+        onChange={(e) => {
+          setCategory(e.target.value);
+          setSelected([]);
+          setSearch("");
+        }}
         className="mt-6 rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm"
       >
-        {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        {CATEGORIES.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
       </select>
 
       {/* Quick-add by barcode — for a product not yet scanned */}
@@ -129,7 +171,11 @@ export default function ComparePage() {
           {quickLoading ? "Adding…" : "Add"}
         </button>
       </div>
-      {quickError && <p className="mt-1 text-xs" style={{ color: "var(--alert)" }}>{quickError}</p>}
+      {quickError && (
+        <p className="mt-1 text-xs" style={{ color: "var(--alert)" }}>
+          {quickError}
+        </p>
+      )}
 
       {/* Search + checklist */}
       <input
@@ -140,11 +186,21 @@ export default function ComparePage() {
       />
       <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
         {filteredList.length === 0 && (
-          <p className="text-sm text-[var(--ink-dim)]">No matching products yet — scan one on the Scan page, or add by barcode above.</p>
+          <p className="text-sm text-[var(--ink-dim)]">
+            No matching products yet — scan one on the Scan page, or add by
+            barcode above.
+          </p>
         )}
         {filteredList.map((p) => (
-          <label key={p._id} className="flex items-center gap-2 rounded-md border border-[var(--line)] px-3 py-2 text-sm">
-            <input type="checkbox" checked={selected.includes(p._id)} onChange={() => toggle(p._id)} />
+          <label
+            key={p._id}
+            className="flex items-center gap-2 rounded-md border border-[var(--line)] px-3 py-2 text-sm"
+          >
+            <input
+              type="checkbox"
+              checked={selected.includes(p._id)}
+              onChange={() => toggle(p._id)}
+            />
             {p.productName}
           </label>
         ))}
@@ -157,16 +213,29 @@ export default function ComparePage() {
             onChange={(e) => setPriority(e.target.value)}
             className="mt-6 rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm"
           >
-            {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {Object.entries(PRIORITIES).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v.label}
+              </option>
+            ))}
           </select>
 
           <div className="mt-4 overflow-x-auto rounded-md border border-[var(--line)]">
+            {aiComparisonSummary && (
+              <p className="mt-4 text-sm italic text-[var(--ink-dim)]">
+                {aiComparisonSummary}
+              </p>
+            )}
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--line)] bg-[var(--bg-elevated)] text-left text-xs uppercase tracking-wide text-[var(--ink-dim)]">
                   <th className="px-3 py-2">Product</th>
                   <th className="px-3 py-2">Score</th>
-                  {METRICS.map((m) => <th key={m.key} className="px-3 py-2 text-right">{m.label}</th>)}
+                  {METRICS.map((m) => (
+                    <th key={m.key} className="px-3 py-2 text-right">
+                      {m.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -180,11 +249,18 @@ export default function ComparePage() {
                   >
                     <td className="px-3 py-2 font-medium">
                       {i === 0 && priority === "overall" && (
-                        <span className="mr-1 rounded-full px-1.5 py-0.5 text-[10px]" style={{ background: "var(--good)", color: "white" }}>BEST</span>
+                        <span
+                          className="mr-1 rounded-full px-1.5 py-0.5 text-[10px]"
+                          style={{ background: "var(--good)", color: "white" }}
+                        >
+                          BEST
+                        </span>
                       )}
                       {p.productName}
                     </td>
-                    <td className="px-3 py-2"><StarRating rating={p.scoreOutput.starRating} /></td>
+                    <td className="px-3 py-2">
+                      <StarRating rating={p.scoreOutput.starRating} />
+                    </td>
                     {METRICS.map((m) => {
                       const val = p.nutritionPer100[m.key];
                       const isBest = val != null && val === bestValueFor(m);
@@ -192,9 +268,14 @@ export default function ComparePage() {
                         <td
                           key={m.key}
                           className="px-3 py-2 text-right font-mono"
-                          style={isBest ? { color: "var(--good)", fontWeight: 600 } : {}}
+                          style={
+                            isBest
+                              ? { color: "var(--good)", fontWeight: 600 }
+                              : {}
+                          }
                         >
-                          {val ?? "—"}{val != null ? m.unit : ""}
+                          {val ?? "—"}
+                          {val != null ? m.unit : ""}
                         </td>
                       );
                     })}
@@ -207,7 +288,9 @@ export default function ComparePage() {
       )}
 
       {chosen.length === 1 && (
-        <p className="mt-4 text-sm text-[var(--ink-dim)]">Select at least one more product to compare.</p>
+        <p className="mt-4 text-sm text-[var(--ink-dim)]">
+          Select at least one more product to compare.
+        </p>
       )}
     </main>
   );

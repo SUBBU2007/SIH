@@ -6,9 +6,9 @@ import Product from "@/lib/models/Product";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { barcode, productName, nutritionPer100, category = "solid", reconciliation, source, quality } = body;
+    const { barcode, productName, nutritionPer100, category = "snacks", reconciliation, source, quality } = body;
 
-    if (category !== "solid" && category !== "snacks") {
+    if (category !== "snacks") {
       return NextResponse.json({
         status: "not_available",
         scoreStatus: "NOT_AVAILABLE",
@@ -42,6 +42,7 @@ export async function POST(req) {
       source,
       quality,
       ...scored,
+      nutritionPer100: cleanNutrition,
       mismatchCheck: mismatch,
       warnings,
     };

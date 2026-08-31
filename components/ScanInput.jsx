@@ -416,7 +416,7 @@ export default function ScanInput({ mode = "verify" }) {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [manualName, setManualName] = useState("");
-  const [category, setCategory] = useState("solid");
+  const [category, setCategory] = useState("snacks");
   const [status, setStatus] = useState("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [product, setProduct] = useState(null);
@@ -526,13 +526,17 @@ export default function ScanInput({ mode = "verify" }) {
     }
   }
 
-  const nutrientCheck = score?.normalizedNutrition ? classifyNutrients(score.normalizedNutrition) : { positives: [], concerns: [] };
+  //const nutrientCheck = score?.normalizedNutrition ? classifyNutrients(score.normalizedNutrition) : { positives: [], concerns: [] };
+  const nutrientCheck = score?.nutritionPer100 ? classifyNutrients(score.nutritionPer100) : { positives: [], concerns: [] };
+
 
   return (
     <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-6">
       {showBarcode && (
         <>
-          <label className="text-sm text-[var(--ink-dim)]">Barcode number{mode === "verify" ? "" : " "}</label>
+          <label className="text-sm text-[var(--ink-dim)]">
+            Barcode number{mode === "verify" ? "" : " "}
+          </label>
           <input
             value={barcode}
             onChange={(e) => setBarcode(e.target.value)}
@@ -542,21 +546,36 @@ export default function ScanInput({ mode = "verify" }) {
         </>
       )}
 
-      <label className="mt-4 block text-sm text-[var(--ink-dim)]">Category</label>
-      <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-2 w-full rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--accent)]">
-        <option value="solid">Solid food / snacks</option>
+      <label className="mt-4 block text-sm text-[var(--ink-dim)]">
+        Category
+      </label>
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className="mt-2 w-full rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+      >
+        <option value="snacks">Snacks</option>
       </select>
 
       {showPhoto && (
         <>
-          <label className="mt-4 block text-sm text-[var(--ink-dim)]">Label photo</label>
-          <input type="file" accept="image/*" onChange={handleFileChange} className="mt-2 w-full text-sm" />
+          <label className="mt-4 block text-sm text-[var(--ink-dim)]">
+            Label photo
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="mt-2 w-full text-sm"
+          />
         </>
       )}
 
       {mode !== "barcode" && (
         <>
-          <label className="mt-4 block text-sm text-[var(--ink-dim)]">Product name (required if no barcode)</label>
+          <label className="mt-4 block text-sm text-[var(--ink-dim)]">
+            Product name (required if no barcode)
+          </label>
           <input
             value={manualName}
             onChange={(e) => setManualName(e.target.value)}
@@ -566,17 +585,24 @@ export default function ScanInput({ mode = "verify" }) {
         </>
       )}
 
-      <button onClick={handleSubmit} disabled={status === "loading"} className="mt-4 rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+      <button
+        onClick={handleSubmit}
+        disabled={status === "loading"}
+        className="mt-4 rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+      >
         {status === "loading" ? "Scanning…" : "Scan"}
       </button>
 
       {status === "error" && (
-        <div className="mt-4 rounded-md border border-[var(--alert)]/30 bg-[var(--alert)]/10 px-3 py-2 text-sm" style={{ color: "var(--alert)" }}>
+        <div
+          className="mt-4 rounded-md border border-[var(--alert)]/30 bg-[var(--alert)]/10 px-3 py-2 text-sm"
+          style={{ color: "var(--alert)" }}
+        >
           {errorMessage}
         </div>
       )}
 
-      {product && score && score.scoreStatus === "CALCULATED" && (
+      {/* {product && score && score.scoreStatus === "CALCULATED" && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="mt-6 overflow-hidden rounded-md border-2 border-[var(--ink)]">
           {product.imageUrl && (
             <img src={product.imageUrl} alt={product.productName} className="h-40 w-full border-b-2 border-[var(--ink)] object-contain bg-white p-2" />
@@ -656,6 +682,174 @@ export default function ScanInput({ mode = "verify" }) {
 
       {score && score.scoreStatus !== "CALCULATED" && (
         <div className="mt-6 rounded-md border border-[var(--line)] px-4 py-3 text-sm text-[var(--ink-dim)]">Score not available: {score.reason}</div>
+      )} */}
+
+      {product && score && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="mt-6 overflow-hidden rounded-md border-2 border-[var(--ink)]"
+        >
+          {product.imageUrl && (
+            <img
+              src={product.imageUrl}
+              alt={product.productName}
+              className="h-40 w-full border-b-2 border-[var(--ink)] object-contain bg-white p-2"
+            />
+          )}
+
+          <div className="border-b-2 border-[var(--ink)] bg-[var(--bg-elevated)] px-4 py-3">
+            <p className="font-display text-base font-medium">
+              {product.productName}
+            </p>
+
+            {score.scoreStatus === "CALCULATED" ? (
+              <>
+                <div className="mt-1 flex items-center gap-2">
+                  <StarRating rating={score.starRating} />
+                  <span className="text-sm text-[var(--ink-dim)]">
+                    FoodScore: {score.foodScore}
+                    <InfoTooltip text="Based on an adaptation of FSSAI's draft Indian Nutrition Rating (INR) framework. Energy, sugar, saturated fat, and sodium each earn penalty points — only the worst factor counts toward your score. Protein and fibre earn capped bonus points, subtracted from it. Lower FoodScore means fewer concerns, shown as more stars. Not medical advice." />
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-dim)]">
+                  <span className="rounded-full border border-[var(--line)] px-2 py-0.5">
+                    {score.source?.barcodeUsed && score.source?.ocrUsed
+                      ? score.mismatchCheck?.hasMismatch
+                        ? "Barcode + Label (mismatch flagged)"
+                        : "Barcode + Label (verified match)"
+                      : score.source?.barcodeUsed
+                        ? "Source: Open Food Facts"
+                        : score.source?.ocrUsed
+                          ? "Source: Label scan"
+                          : "Source: unknown"}
+                  </span>
+                  {score.quality?.ocrEngine === "tesseract" &&
+                    score.quality?.ocrConfidence != null && (
+                      <span>
+                        OCR confidence:{" "}
+                        {Math.round(score.quality.ocrConfidence)}%
+                      </span>
+                    )}
+                  {score.quality?.ocrEngine === "gemini-vision" && (
+                    <span>Label read via AI vision</span>
+                  )}
+                </div>
+                {aiSummary && (
+                  <p className="mt-1 text-sm italic text-[var(--ink-dim)]">
+                    {aiSummary}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="mt-1 text-sm text-[var(--ink-dim)]">
+                FoodScore not available —{" "}
+                {score.reason === "UNKNOWN_OR_UNSUPPORTED_CATEGORY"
+                  ? "category not scored yet"
+                  : "missing a required nutrient value below"}
+                .
+              </p>
+            )}
+          </div>
+
+          <div className="divide-y divide-[var(--line)]">
+            <p className="px-4 py-2 text-xs uppercase tracking-wide text-[var(--ink-dim)]">
+              Per 100g
+            </p>
+            {[
+              ["Energy", score.nutritionPer100?.energy_kcal, "kcal"],
+              ["Sugar", score.nutritionPer100?.sugar_g, "g"],
+              ["Sodium", score.nutritionPer100?.sodium_mg, "mg"],
+              ["Protein", score.nutritionPer100?.protein_g, "g"],
+              ["Saturated fat", score.nutritionPer100?.sat_fat_g, "g"],
+              ["Fibre", score.nutritionPer100?.fiber_g, "g"],
+            ].map(([label, value, unit], i) => (
+              <motion.div
+                key={label}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25, delay: 0.1 + i * 0.05 }}
+                className="flex items-center justify-between px-4 py-2 text-sm"
+              >
+                <span className="flex items-center text-[var(--ink-dim)]">
+                  {label}
+                  {NUTRIENT_INFO[label] && (
+                    <InfoTooltip text={NUTRIENT_INFO[label]} />
+                  )}
+                </span>
+                <span className="font-mono">
+                  {value ?? "—"} {value != null ? unit : ""}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+
+          {score.scoreStatus === "CALCULATED" && (
+            <div className="border-t border-[var(--line)] px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-[var(--ink-dim)]">
+                Why this result
+              </p>
+              <p className="mt-2 text-sm text-[var(--ink-dim)]">
+                {friendlyConcernSentence(
+                  score.explanationData?.strongestNegativeFactor?.factor,
+                )}
+              </p>
+              {(nutrientCheck.positives.length > 0 ||
+                nutrientCheck.concerns.length > 0) && (
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p
+                      className="text-xs font-medium"
+                      style={{ color: "var(--good)" }}
+                    >
+                      Positives
+                    </p>
+                    <ul className="mt-1 space-y-1 text-[var(--ink-dim)]">
+                      {nutrientCheck.positives.length ? (
+                        nutrientCheck.positives.map((p) => (
+                          <li key={p}>+ {p}</li>
+                        ))
+                      ) : (
+                        <li>—</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <p
+                      className="text-xs font-medium"
+                      style={{ color: "var(--alert)" }}
+                    >
+                      Concerns
+                    </p>
+                    <ul className="mt-1 space-y-1 text-[var(--ink-dim)]">
+                      {nutrientCheck.concerns.length ? (
+                        nutrientCheck.concerns.map((c) => (
+                          <li key={c}>− {c}</li>
+                        ))
+                      ) : (
+                        <li>—</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {score.mismatchCheck?.hasMismatch && (
+            <div
+              className="border-t border-[var(--line)] px-4 py-3 text-xs"
+              style={{
+                color: "var(--alert)",
+                background: "rgba(178,59,59,0.06)",
+              }}
+            >
+              Mismatch ({score.mismatchCheck.severity}):{" "}
+              {score.mismatchCheck.fields.map((f) => f.field).join(", ")}
+            </div>
+          )}
+        </motion.div>
       )}
     </div>
   );
